@@ -1,0 +1,180 @@
+plugins {
+    id 'application'
+    id 'java'
+    id "de.undercouch.download" version "5.1.0"
+    id 'idea'
+    id "io.github.0ffz.github-packages" version "1.2.1" // Plugin for anonymous inclusion of artifacts hosted in github package registry
+}
+
+description = 'Invade application'
+
+java {
+    sourceCompatibility = '17'
+    targetCompatibility = '17'
+}
+
+ext.jmonkeyengineVersion = '3.6.1-stable'
+
+mainClassName = 'berlin.ong.student.Invade'
+if (!hasProperty('mainClass')) {
+    ext.mainClass = mainClassName
+}
+jar.manifest.attributes('Main-Class': mainClassName)
+
+repositories {
+    mavenCentral()
+    mavenLocal()
+}
+
+application {
+    if (System.getProperty("os.name").toLowerCase().contains("mac")) {
+        applicationDefaultJvmArgs = ['-XstartOnFirstThread'] // this is when using a Mac as a development machine which requires the AppKit main UI thread to be used for GUI applications
+    }
+}
+
+dependencies {
+    // You can read more about how to add dependencies here:
+    //   https://docs.gradle.org/current/userguide/dependency_management.html#sec:how_to_declare_your_dependencies
+
+    implementation 'org.jmonkeyengine:jme3-core:' + jmonkeyengineVersion
+    implementation 'org.jmonkeyengine:jme3-desktop:' + jmonkeyengineVersion
+    runtimeOnly 'org.jmonkeyengine:jme3-jogg:' + jmonkeyengineVersion
+    runtimeOnly 'org.jmonkeyengine:jme3-plugins:' + jmonkeyengineVersion
+
+
+    runtimeOnly 'org.jmonkeyengine:jme3-lwjgl3:' + jmonkeyengineVersion
+
+
+}
+
+distZip {
+    //having a degenerate folder within the dist zip complicates generating the other zips
+    eachFile { file ->
+        String path = file.relativePath
+        file.setPath(path.substring(path.indexOf("/") + 1, path.length()))
+    }
+    includeEmptyDirs(false)
+}
+
+//See https://api.adoptium.net/v3/assets/feature_releases/11/ga?image_type=jre for jre urls
+def linuxJreUrl = "https://github.com/adoptium/temurin17-binaries/releases/download/jdk-17.0.6%2B10/OpenJDK17U-jre_x64_linux_hotspot_17.0.6_10.tar.gz"
+def macJreUrl = "https://github.com/adoptium/temurin17-binaries/releases/download/jdk-17.0.6%2B10/OpenJDK17U-jre_x64_mac_hotspot_17.0.6_10.tar.gz"
+
+
+task downloadLinuxJre(type: Download) {
+    src linuxJreUrl
+    dest new File(buildDir, '/jres/linuxJre.tar.gz')
+    overwrite false
+}
+
+task downloadAndUnzipLinuxJre(dependsOn: downloadLinuxJre, type: Copy) {
+    from tarTree(downloadLinuxJre.dest)
+    into "${buildDir}/jres/linuxJre/"
+    includeEmptyDirs(false)
+    filesMatching("**") {
+        it.path = it.path.replaceAll("^[a-zA-Z0-9.+-]*[/\\\\]", "jre/") //rename the top level to something standard so the rest of the script will be easier
+    }
+}
+
+task buildLinuxDistribution(dependsOn: [distZip, downloadAndUnzipLinuxJre], type: Copy)
+{
+    group 'distribution'
+    from files("${projectDir}/scripts/desktopDeployment/Invade.sh"){
+        fileMode 0755
+    }
+    from zipTree(distZip.archiveFile)
+    from "${buildDir}/jres/linuxJre"
+    into new File(buildDir, 'distributions/Invade-linux')
+    includeEmptyDirs false
+    exclude 'bin/**' //we are adding our own run scripts, exclude the ones coming from distZip
+}
+
+task zipLinuxDistribution( dependsOn:buildLinuxDistribution, type: Zip) {
+    group 'distribution'
+    archiveFileName = "Invade-linux.tar.gz"
+    destinationDirectory = file("$buildDir/distributions")
+    from ("$buildDir/distributions/Invade-linux"){
+      include('**.sh')
+      include('**/java')
+      fileMode 0755
+    }
+    from ("$buildDir/distributions/Invade-linux"){
+        exclude('**.sh')
+        exclude('**/java')
+    }
+}
+
+
+task downloadMacJre(type: Download) {
+    src macJreUrl
+    dest new File(buildDir, '/jres/macJre.tar.gz')
+    overwrite false
+}
+
+task downloadAndUnzipMacJre(dependsOn: downloadMacJre, type: Copy) {
+    from tarTree(downloadMacJre.dest)
+    into "${buildDir}/jres/macJre/"
+    includeEmptyDirs(false)
+    filesMatching("**") {
+        it.path = it.path.replaceAll("^[a-zA-Z0-9.+-]*[/\\\\]", "jre/") //rename the top level to something standard so the rest of the script will be easier
+    }
+}
+
+task buildMacDistribution(dependsOn: [distZip, downloadAndUnzipMacJre], type: Copy)
+{
+    group 'distribution'
+    from files("${projectDir}/scripts/desktopDeployment/Invade.command"){
+        fileMode 0755
+    }
+    from zipTree(distZip.archiveFile) 
+    from "${buildDir}/jres/macJre"
+    into new File(buildDir, 'distributions/Invade-mac')
+    includeEmptyDirs false
+    exclude 'bin/**' //we are adding our own run scripts, exclude the ones coming from distZip
+}
+
+task zipMacDistribution( dependsOn:buildMacDistribution, type: Zip) {
+    group 'distribution'
+    archiveFileName = "Invade-mac.tar.gz"
+    destinationDirectory = file("$buildDir/distributions")
+    from ("$buildDir/distributions/Invade-mac"){
+      include('**.command')
+      include('**/java')
+      fileMode 0755
+    }
+    from ("$buildDir/distributions/Invade-mac"){
+        exclude('**.command')
+        exclude('**/java')
+    }
+}
+
+task buildAllDistributions{
+    group 'distribution'
+    dependsOn 'zipLinuxDistribution'
+    dependsOn 'zipMacDistribution'
+
+    doLast {
+        println("Distributions created in build/distributions folder")
+    }
+}
+
+// cleanup tasks
+clean.dependsOn('cleanDLLs', 'cleanDyLibs', 'cleanLogs', 'cleanSOs')
+task cleanDLLs(type: Delete) {
+    delete fileTree(dir: '.', include: '*.dll')
+}
+task cleanDyLibs(type: Delete) {
+    delete fileTree(dir: '.', include: '*.dylib')
+}
+task cleanLogs(type: Delete) {
+    delete fileTree(dir: '.', include: 'hs_err_pid*.log')
+}
+task cleanSOs(type: Delete) {
+    delete fileTree(dir: '.', include: '*.so')
+}
+
+task fund(){
+    doLast {
+       java.awt.Desktop.desktop.browse "https://start.jmonkeyengine.org/#!funding=JME_DESKTOP".toURI()
+    }
+}
