@@ -13,6 +13,10 @@ import com.jme3.scene.Geometry;
 import com.jme3.scene.Node;
 import com.jme3.scene.shape.Box;
 import com.jme3.system.AppSettings;
+import com.jme3.input.KeyInput;
+import com.jme3.input.controls.ActionListener;
+import com.jme3.input.controls.AnalogListener;
+import com.jme3.input.controls.KeyTrigger;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -34,30 +38,39 @@ public class Invade extends SimpleApplication {
     private Invade mainInstance;
 
     private Player player;
+    private Bots ufo;
 
     private final Node pivot = new Node("pivot");
 
     private final List<Bots> botsList = new ArrayList<>();
     private final List<Shot> shotList = new ArrayList<>();
+    private final List<Shot> shotsDePlayer = new ArrayList<>();
     private final List<Node> pivotShotList = new ArrayList<>();
+    private final List<Node> pivotDePlayer = new ArrayList();
+
 
     private float frustumSize;
     private float aspect;
     private float timeSinceLastMove = 0;
     private float timeSinceLastShot = 0;
     private float timeSinceLost = 0;
+    private float timeSinceLastShotDePlayer = 0;
+
     private boolean didBroLoose = false;
+    private boolean didBroShoot = false;
 
     private int howManySteps = 0;
     private int skin = 0; // Animation purposes
     private final int gotShot = 0;
 
     private Shot shot;
+    private Shot shotDePlayer;
     private Vector3f shootVector;
+    private Vector3f shootDePlayer;
 
     // Collision and hit logic
     private final CollisionResults results = new CollisionResults();
-
+    private final CollisionResults resultsDePlayer = new CollisionResults();
 
     public static void main(String[] args) {
         Invade app = new Invade();
@@ -70,6 +83,7 @@ public class Invade extends SimpleApplication {
         app.setShowSettings(false);
 
         app.start();
+
 
     }
 
@@ -113,6 +127,7 @@ public class Invade extends SimpleApplication {
         domainExpansion_ufosVoid();
         // Creating player
         createPlayerUfo();
+        keys();
         // Creating background (either white or black)
         domainExpansionBlack();
         // Creating Text and Title
@@ -129,6 +144,7 @@ public class Invade extends SimpleApplication {
         timeSinceLastMove += tpf;
         timeSinceLastShot += tpf;
         timeSinceLost += tpf;
+        timeSinceLastShotDePlayer += tpf;
 
         // Hindering the ufos from moving too fast
         if (timeSinceLastMove >= 0.6 && howManySteps <= 9) {
@@ -172,7 +188,32 @@ public class Invade extends SimpleApplication {
 
         }
 
-        if (timeSinceLost > 5 && didBroLoose) this.stop();
+        for (Node pivot : pivotDePlayer) {
+            pivot.move(0, +0.3f, 0);
+
+            for (Shot shot : shotsDePlayer) {
+                pivot.attachChild(shot.getShotGeometry());
+                shot.getShotGeometry().updateModelBound();
+
+                resultsDePlayer.clear();
+                shot.getShotGeometry().getWorldBound().collideWith(ufo.getUfoBox(), resultsDePlayer);
+
+                if (results.size() > 0) {
+                    createLosingScreen();
+                    timeSinceLost = 0;
+                    didBroLoose = true;
+                }
+            }
+
+        }
+
+        if (timeSinceLastShotDePlayer >= 1.5 && didBroShoot) {
+            domainExpansionPlayerShot();
+            timeSinceLastShotDePlayer = 0;
+            didBroShoot = false;
+        }
+
+//        if (timeSinceLost > 5 && didBroLoose) this.stop();
 
     }
 
@@ -191,7 +232,7 @@ public class Invade extends SimpleApplication {
 
         for (int j = 0; j <= 2; j++) {
             for (int i = 0; i < vectors.length; i++) {
-                Bots ufo = new Bots(3, 3, 1, names[i], vectors[i], y, 1, mainInstance);
+                ufo = new Bots(3, 3, 1, names[i], vectors[i], y, 1, mainInstance);
                 botsList.add(ufo); // Adding to the list they can all move
                 rootNode.attachChild(pivot);
                 pivot.setLocalTranslation(-5, 0, 0);
@@ -214,7 +255,6 @@ public class Invade extends SimpleApplication {
     }
 
     public void moveBots() {
-
         pivot.move(1f, 0, 0);
         for (Bots bot : botsList) {
             if (skin == 0) {
@@ -225,6 +265,22 @@ public class Invade extends SimpleApplication {
                 skin = 0;
             }
             pivot.attachChild(bot.getUfoGeometry());
+            bot.getUfoGeometry().updateModelBound();
+        }
+    }
+
+    public void moveBotsMinusOne() {
+        pivot.move(-1, 0, 0);
+        for (Bots bot : botsList) {
+            if (skin == 0) {
+                mainInstance.mat1_1.setTexture("ColorMap", assetManager.loadTexture("Textures/Alien1-2.png"));
+                skin = 1;
+            } else {
+                mainInstance.mat1_1.setTexture("ColorMap", assetManager.loadTexture("Textures/Alien1-1.png"));
+                skin = 0;
+            }
+            pivot.attachChild(bot.getUfoGeometry());
+            bot.getUfoGeometry().updateModelBound();
         }
     }
 
@@ -238,10 +294,10 @@ public class Invade extends SimpleApplication {
     }
 
     public void createLosingScreen() {
-        Box box = new Box(56,24, 0);
+        Box box = new Box(56, 24, 0);
         Geometry lLose = new Geometry("letterbox", box);
         lLose.setMaterial(mat5);
-        lLose.setLocalTranslation(0,0,5);
+        lLose.setLocalTranslation(0, 0, 5);
         rootNode.attachChild(lLose);
     }
 
@@ -268,22 +324,36 @@ public class Invade extends SimpleApplication {
         shotList.add(shot);
         pivotShotList.add(pivot1);
 
-
     }
 
-    public void moveBotsMinusOne() {
-        pivot.move(-1, 0, 0);
-        for (Bots bot : botsList) {
-            if (skin == 0) {
-                mainInstance.mat1_1.setTexture("ColorMap", assetManager.loadTexture("Textures/Alien1-2.png"));
-                skin = 1;
-            } else {
-                mainInstance.mat1_1.setTexture("ColorMap", assetManager.loadTexture("Textures/Alien1-1.png"));
-                skin = 0;
+    // Nearly the same principle as the shots coming from the ufos
+    public void domainExpansionPlayerShot() {
+        shotDePlayer = new Shot(0.3f, 1, 5, mainInstance);
+        Vector3f vectorShot = player.getPlayer().getLocalTranslation();
+        Node pivot2 = new Node("pivot2");
+        pivot2.setLocalTranslation(vectorShot);
+        pivot2.move(0, 1, 0);
+        rootNode.attachChild(pivot2);
+        shotsDePlayer.add(shotDePlayer);
+        pivotDePlayer.add(pivot2);
+    }
+
+    private void keys() {
+        inputManager.addMapping("Shoot", new KeyTrigger(KeyInput.KEY_SPACE));
+        inputManager.addListener(analogListener, "Shoot");
+    }
+
+    final private AnalogListener analogListener = new AnalogListener() {
+        @Override
+        public void onAnalog(String name, float value, float tpf) {
+            if (true) {
+                if (name.equals("Shoot")) {
+                    didBroShoot = true;
+                }
             }
-            pivot.attachChild(bot.getUfoGeometry());
         }
-    }
+    };
+
 
     public Material getmat1() {
         return mainInstance.mat1_1;

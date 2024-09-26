@@ -1,5 +1,6 @@
 package berlin.ong.student;
 import com.jme3.app.SimpleApplication;
+import com.jme3.bounding.BoundingBox;
 import com.jme3.material.*;
 import com.jme3.math.ColorRGBA;
 import com.jme3.math.Vector3f;
@@ -43,10 +44,16 @@ public class Bots {
         this.mat = mainInstance;
         ufo.setMaterial(mat.getmat1());
         ufo.setLocalTranslation(new Vector3f(x_vector, y_vector, z_vector));
+        ufo.setModelBound(new BoundingBox(new Vector3f(0, 0, 0), x_axis, y_axis, z_axis));
+        ufo.updateModelBound();
     }
 
     public Geometry getUfoGeometry(){
         return ufo;
+    }
+
+    public BoundingBox getUfoBox() {
+        return (BoundingBox) ufo.getWorldBound();
     }
 
 }
