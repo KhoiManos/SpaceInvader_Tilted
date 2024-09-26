@@ -1,5 +1,6 @@
 package berlin.ong.student;
 import com.jme3.app.SimpleApplication;
+import com.jme3.bounding.BoundingBox;
 import com.jme3.material.*;
 import com.jme3.math.ColorRGBA;
 import com.jme3.math.Vector3f;
@@ -27,7 +28,9 @@ public class Shot {
         shoot = new Geometry("shot", shot);
         this.mat = mainInstance;
         shoot.setMaterial(mat.getMat4());
-        shoot.setLocalTranslation(0,0,2);
+        shoot.setLocalTranslation(0,0,1);
+        shoot.setModelBound(new BoundingBox(new Vector3f(0, 0, 0), x, y, z));
+        shoot.updateModelBound();
     }
 
     public Geometry getShotGeometry(){

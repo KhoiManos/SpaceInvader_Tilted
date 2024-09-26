@@ -1,5 +1,8 @@
 package berlin.ong.student;
 
+import com.jme3.bounding.BoundingBox;
+import com.jme3.collision.CollisionResult;
+import com.jme3.collision.CollisionResults;
 import com.jme3.math.FastMath;
 import com.jme3.renderer.RenderManager;
 import com.jme3.app.SimpleApplication;
@@ -25,25 +28,35 @@ public class Invade extends SimpleApplication {
     private Material mat2_1;
     private Material mat3;
     private Material mat4;
+    private Material mat5;
     private Material whiteMaterial;
 
     private Invade mainInstance;
 
-    private Node pivot = new Node("pivot");
+    private Player player;
 
-    private List<Bots> botsList = new ArrayList<>();
-    private List<Shot> shotList = new ArrayList<>();
-    private List<Node> pivotShotList = new ArrayList<>();
+    private final Node pivot = new Node("pivot");
+
+    private final List<Bots> botsList = new ArrayList<>();
+    private final List<Shot> shotList = new ArrayList<>();
+    private final List<Node> pivotShotList = new ArrayList<>();
 
     private float frustumSize;
     private float aspect;
     private float timeSinceLastMove = 0;
     private float timeSinceLastShot = 0;
+    private float timeSinceLost = 0;
+    private boolean didBroLoose = false;
 
     private int howManySteps = 0;
-    private int skin = 0;
+    private int skin = 0; // Animation purposes
+    private final int gotShot = 0;
 
+    private Shot shot;
     private Vector3f shootVector;
+
+    // Collision and hit logic
+    private final CollisionResults results = new CollisionResults();
 
 
     public static void main(String[] args) {
@@ -88,10 +101,13 @@ public class Invade extends SimpleApplication {
         mainInstance.mat2_1.setTexture("ColorMap", assetManager.loadTexture("Textures/playerSpaceInvader.png"));
 
         mat3 = new Material(assetManager, "Common/MatDefs/Misc/Unshaded.j3md");
-        mat3.setTexture("ColorMap", assetManager.loadTexture("Textures/TextText.png"));
+        mat3.setTexture("ColorMap", assetManager.loadTexture("Textures/FinalAhText.png"));
 
         mainInstance.mat4 = new Material(assetManager, "Common/MatDefs/Misc/Unshaded.j3md");
         mainInstance.mat4.setColor("Color", ColorRGBA.White);
+
+        mat5 = new Material(assetManager, "Common/MatDefs/Misc/Unshaded.j3md");
+        mat5.setTexture("ColorMap", assetManager.loadTexture("Textures/losingScreen.png"));
 
         // Creating ufos
         domainExpansion_ufosVoid();
@@ -101,12 +117,18 @@ public class Invade extends SimpleApplication {
         domainExpansionBlack();
         // Creating Text and Title
         createText();
+        // Creating first shot for hit logic
+        domainExpansionCreateShot();
+
+        int gotShot = shot.getShotGeometry().getModelBound().collideWith(player.getPlayer().getWorldBound(), results);
+
     }
 
     @Override
     public void simpleUpdate(float tpf) {
         timeSinceLastMove += tpf;
         timeSinceLastShot += tpf;
+        timeSinceLost += tpf;
 
         // Hindering the ufos from moving too fast
         if (timeSinceLastMove >= 0.6 && howManySteps <= 9) {
@@ -126,21 +148,31 @@ public class Invade extends SimpleApplication {
             }
         }
 
-        if (timeSinceLastShot >= 3) {
+        if (timeSinceLastShot >= 3 && !didBroLoose) {
             domainExpansionCreateShot();
-
             timeSinceLastShot = 0;
         }
 
-        for(Node pivot : pivotShotList){
+        for (Node pivot : pivotShotList) {
             pivot.move(0, -0.3f, 0);
 
-            for(Shot shot : shotList){
+            for (Shot shot : shotList) {
                 pivot.attachChild(shot.getShotGeometry());
+                shot.getShotGeometry().updateModelBound(); // Update bounding box after moving
+                // Perform collision check
+                results.clear();
+                shot.getShotGeometry().getWorldBound().collideWith(player.getHitBox(), results);
 
+                if (results.size() > 0) {
+                    createLosingScreen();
+                    timeSinceLost = 0;
+                    didBroLoose = true;
+                }
             }
 
         }
+
+        if (timeSinceLost > 5 && didBroLoose) this.stop();
 
     }
 
@@ -197,21 +229,30 @@ public class Invade extends SimpleApplication {
     }
 
     public void createText() {
-        Box textbox = new Box(15, 3, 0);
+        Box textbox = new Box(12, 3, 0);
         Geometry textGeoBox = new Geometry("letterbox", textbox);
         textGeoBox.setMaterial(mat3);
         rootNode.attachChild(textGeoBox);
-        textGeoBox.move((-frustumSize + 10) * aspect, frustumSize - 4, 0);
+        textGeoBox.move((-frustumSize + 8) * aspect, frustumSize - 4, 0);
 
+    }
+
+    public void createLosingScreen() {
+        Box box = new Box(56,24, 0);
+        Geometry lLose = new Geometry("letterbox", box);
+        lLose.setMaterial(mat5);
+        lLose.setLocalTranslation(0,0,5);
+        rootNode.attachChild(lLose);
     }
 
     public void createPlayerUfo() {
-        Player player = new Player(4, 2, 1, "PLAYER", mainInstance);
+        player = new Player(4, 2, 5, "PLAYER", mainInstance);
         rootNode.attachChild(player.getPlayer());
+        player.getPlayer().updateModelBound();
     }
 
     public void domainExpansionCreateShot() {
-        Shot shot = new Shot(0.5f, 1, 1, mainInstance);
+        shot = new Shot(0.3f, 1, 5, mainInstance);
 
         // Picking the vectors/coords for the starting point of the shooting projectile
         int randNum = (int) (Math.random() * botsList.size());
@@ -226,8 +267,9 @@ public class Invade extends SimpleApplication {
         // All the shots created in a list for the method in line 135
         shotList.add(shot);
         pivotShotList.add(pivot1);
-    }
 
+
+    }
 
     public void moveBotsMinusOne() {
         pivot.move(-1, 0, 0);

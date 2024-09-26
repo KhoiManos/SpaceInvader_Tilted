@@ -49,8 +49,5 @@ public class Bots {
         return ufo;
     }
 
-
-
-
 }
 
