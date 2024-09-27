@@ -33,6 +33,7 @@ public class Invade extends SimpleApplication {
     private Material mat3;
     private Material mat4;
     private Material mat5;
+    private Material mat6;
     private Material whiteMaterial;
 
     private Invade mainInstance;
@@ -130,6 +131,9 @@ public class Invade extends SimpleApplication {
         mat5 = new Material(assetManager, "Common/MatDefs/Misc/Unshaded.j3md");
         mat5.setTexture("ColorMap", assetManager.loadTexture("Textures/gamerover.png"));
 
+        mat6 = new Material(assetManager, "Common/MatDefs/Misc/Unshaded.j3md");
+        mat6.setTexture("ColorMap", assetManager.loadTexture("Textures/double.png"));
+
 
         // Creating player
         createPlayerUfo();
@@ -139,8 +143,9 @@ public class Invade extends SimpleApplication {
         domainExpansion_ufosVoid();
         // Creating background (either white or black)
         domainExpansionBlack();
-        // Creating Text and Title
+        // Creating Text, Double and Title
         createText();
+        doublecreateText();
         // Creating first shot for hit logic
         domainExpansionCreateShot();
 
@@ -176,7 +181,7 @@ public class Invade extends SimpleApplication {
             }
         }
 
-        if (timeSinceLastShot >= 2 && !didBroLoose) {
+        if (timeSinceLastShot >= 1.7 && !didBroLoose) {
             domainExpansionCreateShot();
             timeSinceLastShot = 0;
         }
@@ -307,6 +312,17 @@ public class Invade extends SimpleApplication {
         textGeoBox.setMaterial(mat3);
         rootNode.attachChild(textGeoBox);
         textGeoBox.move((-frustumSize + 8) * aspect, frustumSize - 4, 0);
+
+    }
+
+    private void doublecreateText() {
+        Box textbox = new Box(7, 1, 0);
+        Geometry textGeoBox = new Geometry("letterbox", textbox);
+        textGeoBox.setMaterial(mat6);
+        rootNode.attachChild(textGeoBox);
+        Vector3f moveYOASS = player.getPlayer().getLocalTranslation();
+        textGeoBox.move(moveYOASS);
+        textGeoBox.move(0,5,0);
 
     }
 
