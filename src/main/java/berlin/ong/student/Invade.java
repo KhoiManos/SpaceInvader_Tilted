@@ -55,13 +55,18 @@ public class Invade extends SimpleApplication {
     private float timeSinceLastShot = 0;
     private float timeSinceLost = 0;
     private float timeSinceLastShotDePlayer = 0;
+    private float timeSinceLastSkinChange = 0;
 
     private boolean didBroLoose = false;
     private boolean didBroShoot = false;
+    private boolean didBroHit = false;
+
+    private InvadeControllerReceiver client;
 
     private int howManySteps = 0;
     private int skin = 0; // Animation purposes
     private final int gotShot = 0;
+//    private int x = 0;
 
     private Shot shot;
     private Shot shotDePlayer;
@@ -71,6 +76,8 @@ public class Invade extends SimpleApplication {
     // Collision and hit logic
     private final CollisionResults results = new CollisionResults();
     private final CollisionResults resultsDePlayer = new CollisionResults();
+
+    private Pepe pepe;
 
     public static void main(String[] args) {
         Invade app = new Invade();
@@ -83,12 +90,11 @@ public class Invade extends SimpleApplication {
         app.setShowSettings(false);
 
         app.start();
-
-
     }
 
     @Override
     public void simpleInitApp() {
+        client = new InvadeControllerReceiver("192.168.178.66", 8080, "/ws");
 
         cam.setParallelProjection(true); // orthographic mode
 
@@ -112,7 +118,7 @@ public class Invade extends SimpleApplication {
         whiteMaterial.setColor("Color", ColorRGBA.BlackNoAlpha);
 
         mainInstance.mat2_1 = new Material(assetManager, "Common/MatDefs/Misc/Unshaded.j3md");
-        mainInstance.mat2_1.setTexture("ColorMap", assetManager.loadTexture("Textures/playerSpaceInvader.png"));
+        mainInstance.mat2_1.setTexture("ColorMap", assetManager.loadTexture("Textures/player.png"));
 
         mat3 = new Material(assetManager, "Common/MatDefs/Misc/Unshaded.j3md");
         mat3.setTexture("ColorMap", assetManager.loadTexture("Textures/FinalAhText.png"));
@@ -121,7 +127,7 @@ public class Invade extends SimpleApplication {
         mainInstance.mat4.setColor("Color", ColorRGBA.White);
 
         mat5 = new Material(assetManager, "Common/MatDefs/Misc/Unshaded.j3md");
-        mat5.setTexture("ColorMap", assetManager.loadTexture("Textures/losingScreen.png"));
+        mat5.setTexture("ColorMap", assetManager.loadTexture("Textures/gamerover.png"));
 
         // Creating ufos
         domainExpansion_ufosVoid();
@@ -134,9 +140,11 @@ public class Invade extends SimpleApplication {
         createText();
         // Creating first shot for hit logic
         domainExpansionCreateShot();
+        domainExpansionPlayerShot();
 
         int gotShot = shot.getShotGeometry().getModelBound().collideWith(player.getPlayer().getWorldBound(), results);
 
+        client.listen(pepe = new Pepe(player));
     }
 
     @Override
@@ -145,16 +153,17 @@ public class Invade extends SimpleApplication {
         timeSinceLastShot += tpf;
         timeSinceLost += tpf;
         timeSinceLastShotDePlayer += tpf;
+        timeSinceLastSkinChange += tpf;
 
         // Hindering the ufos from moving too fast
-        if (timeSinceLastMove >= 0.6 && howManySteps <= 9) {
+        if (timeSinceLastMove >= 0.5 && howManySteps <= 9) {
             moveBots();
             timeSinceLastMove = 0;
             howManySteps++;
 
         }
 
-        if (timeSinceLastMove >= 0.6 && howManySteps > 9 && howManySteps <= 20) {
+        if (timeSinceLastMove >= 0.5 && howManySteps > 9 && howManySteps <= 20) {
             moveBotsMinusOne();
             howManySteps++;
             timeSinceLastMove = 0;
@@ -192,17 +201,30 @@ public class Invade extends SimpleApplication {
             pivot.move(0, +0.3f, 0);
 
             for (Shot shot : shotsDePlayer) {
-                pivot.attachChild(shot.getShotGeometry());
-                shot.getShotGeometry().updateModelBound();
+                if (didBroShoot) {
+                    shot.getShotGeometry().setLocalTranslation(0, 0, 1);
+                    pivot.attachChild(shot.getShotGeometry());
+                    shot.getShotGeometry().updateModelBound();
+                }
+
+//                if (didBroHit) {
+//                    Vector3f shotGoBack = shot.getShotGeometry().getLocalTranslation();
+//                    shot.getShotGeometry().setLocalTranslation(shotGoBack.x, shotGoBack.y, shotGoBack.z - 40);
+//                    didBroHit = false;
+//                }
+            }
+
+        }
+
+        for (Bots bots : botsList) {
+
+            Geometry ufoGeometry = bots.getUfoGeometry();
+            if (ufoGeometry.getWorldBound().collideWith(shotDePlayer.getShotGeometry().getWorldBound(), resultsDePlayer) > 0) {
+                Vector3f currentPosition = ufoGeometry.getLocalTranslation();
+                ufoGeometry.setLocalTranslation(currentPosition.x, currentPosition.y, currentPosition.z - 15);
+                didBroHit = true;
 
                 resultsDePlayer.clear();
-                shot.getShotGeometry().getWorldBound().collideWith(ufo.getUfoBox(), resultsDePlayer);
-
-                if (results.size() > 0) {
-                    createLosingScreen();
-                    timeSinceLost = 0;
-                    didBroLoose = true;
-                }
             }
 
         }
@@ -213,13 +235,14 @@ public class Invade extends SimpleApplication {
             didBroShoot = false;
         }
 
-//        if (timeSinceLost > 5 && didBroLoose) this.stop();
+        pepe.onRotationChange(new Vector3f(0f,0.2f,0f));
+
 
     }
 
     @Override
     public void simpleRender(RenderManager rm) {
-        //add render code here (if any)
+
     }
 
     public void domainExpansion_ufosVoid() {
@@ -256,14 +279,14 @@ public class Invade extends SimpleApplication {
 
     public void moveBots() {
         pivot.move(1f, 0, 0);
+        if (skin == 0) {
+            mainInstance.mat1_1.setTexture("ColorMap", assetManager.loadTexture("Textures/Alien1-1-3.png"));
+            skin = 1;
+        } else {
+            mainInstance.mat1_1.setTexture("ColorMap", assetManager.loadTexture("Textures/Alien1-1.png"));
+            skin = 0;
+        }
         for (Bots bot : botsList) {
-            if (skin == 0) {
-                mainInstance.mat1_1.setTexture("ColorMap", assetManager.loadTexture("Textures/Alien1-2.png"));
-                skin = 1;
-            } else {
-                mainInstance.mat1_1.setTexture("ColorMap", assetManager.loadTexture("Textures/Alien1-1.png"));
-                skin = 0;
-            }
             pivot.attachChild(bot.getUfoGeometry());
             bot.getUfoGeometry().updateModelBound();
         }
@@ -271,14 +294,14 @@ public class Invade extends SimpleApplication {
 
     public void moveBotsMinusOne() {
         pivot.move(-1, 0, 0);
+        if (skin == 0) {
+            mainInstance.mat1_1.setTexture("ColorMap", assetManager.loadTexture("Textures/Alien1-1-3.png"));
+            skin = 1;
+        } else {
+            mainInstance.mat1_1.setTexture("ColorMap", assetManager.loadTexture("Textures/Alien1-1.png"));
+            skin = 0;
+        }
         for (Bots bot : botsList) {
-            if (skin == 0) {
-                mainInstance.mat1_1.setTexture("ColorMap", assetManager.loadTexture("Textures/Alien1-2.png"));
-                skin = 1;
-            } else {
-                mainInstance.mat1_1.setTexture("ColorMap", assetManager.loadTexture("Textures/Alien1-1.png"));
-                skin = 0;
-            }
             pivot.attachChild(bot.getUfoGeometry());
             bot.getUfoGeometry().updateModelBound();
         }
@@ -336,6 +359,7 @@ public class Invade extends SimpleApplication {
         rootNode.attachChild(pivot2);
         shotsDePlayer.add(shotDePlayer);
         pivotDePlayer.add(pivot2);
+
     }
 
     private void keys() {
@@ -354,6 +378,29 @@ public class Invade extends SimpleApplication {
         }
     };
 
+//    public void switchSkin() {
+//        if (x == 0) {
+//            mainInstance.mat1_1.setTexture("ColorMap", assetManager.loadTexture("Textures/Alien1-1.png"));
+//            x = 1;
+//        } else if (x == 1) {
+//            mainInstance.mat1_1.setTexture("ColorMap", assetManager.loadTexture("Textures/Alien1-1-2.png"));
+//            x = 2;
+//        } else if (x == 2) {
+//            mainInstance.mat1_1.setTexture("ColorMap", assetManager.loadTexture("Textures/Alien1-1-3.png"));
+//            x = 3;
+//        } else if (x == 3) {
+//            mainInstance.mat1_1.setTexture("ColorMap", assetManager.loadTexture("Textures/Alien1-1-4.png"));
+//            x = 4;
+//        } else if (x == 4) {
+//            mainInstance.mat1_1.setTexture("ColorMap", assetManager.loadTexture("Textures/Alien1-1-5.png"));
+//            x = 5;
+//        } else if (x == 5) {
+//            mainInstance.mat1_1.setTexture("ColorMap", assetManager.loadTexture("Textures/Alien1-1-6.png"));
+//            x = 0;
+//        }
+//
+//    }
+
 
     public Material getmat1() {
         return mainInstance.mat1_1;
@@ -366,5 +413,7 @@ public class Invade extends SimpleApplication {
     public Material getMat4() {
         return mainInstance.mat4;
     }
+
+
 
 }

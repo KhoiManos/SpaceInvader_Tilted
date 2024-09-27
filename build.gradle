@@ -4,13 +4,14 @@ plugins {
     id "de.undercouch.download" version "5.1.0"
     id 'idea'
     id "io.github.0ffz.github-packages" version "1.2.1" // Plugin for anonymous inclusion of artifacts hosted in github package registry
+    id "org.jetbrains.kotlin.jvm" version "2.0.20"
 }
 
 description = 'Invade application'
 
 java {
-    sourceCompatibility = '17'
-    targetCompatibility = '17'
+    sourceCompatibility = '21'
+    targetCompatibility = '21'
 }
 
 ext.jmonkeyengineVersion = '3.6.1-stable'
@@ -44,7 +45,9 @@ dependencies {
 
     runtimeOnly 'org.jmonkeyengine:jme3-lwjgl3:' + jmonkeyengineVersion
 
-
+    implementation "org.jetbrains.kotlinx:kotlinx-coroutines-core:1.9.0"
+    implementation "com.ditchoom:buffer:1.4.2"
+    implementation "com.ditchoom:websocket:1.1.0"
 }
 
 distZip {

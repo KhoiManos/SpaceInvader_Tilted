@@ -44,7 +44,7 @@ public class Bots {
         this.mat = mainInstance;
         ufo.setMaterial(mat.getmat1());
         ufo.setLocalTranslation(new Vector3f(x_vector, y_vector, z_vector));
-        ufo.setModelBound(new BoundingBox(new Vector3f(0, 0, 0), x_axis, y_axis, z_axis));
+        ufo.setModelBound(new BoundingBox(new Vector3f(0, 0, 0), x_axis, y_axis, 10));
         ufo.updateModelBound();
     }
 
