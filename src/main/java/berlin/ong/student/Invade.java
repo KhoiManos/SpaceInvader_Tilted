@@ -34,6 +34,7 @@ public class Invade extends SimpleApplication {
     private Material mat4;
     private Material mat5;
     private Material mat6;
+    private Material mat7;
     private Material whiteMaterial;
 
     private Invade mainInstance;
@@ -60,13 +61,13 @@ public class Invade extends SimpleApplication {
 
     private boolean didBroLoose = false;
     private boolean didBroShoot = false;
-    private boolean didBroHit = false;
 
     private InvadeControllerReceiver client;
 
     private int howManySteps = 0;
     private int skin = 0; // Animation purposes
     private final int gotShot = 0;
+    private int botsShot = 0;
 //    private int x = 0;
 
     private Shot shot;
@@ -134,6 +135,9 @@ public class Invade extends SimpleApplication {
         mat6 = new Material(assetManager, "Common/MatDefs/Misc/Unshaded.j3md");
         mat6.setTexture("ColorMap", assetManager.loadTexture("Textures/double.png"));
 
+        mat7 = new Material(assetManager, "Common/MatDefs/Misc/Unshaded.j3md");
+        mat7.setTexture("ColorMap", assetManager.loadTexture("Textures/gg.png"));
+
 
         // Creating player
         createPlayerUfo();
@@ -181,7 +185,7 @@ public class Invade extends SimpleApplication {
             }
         }
 
-        if (timeSinceLastShot >= 1.7 && !didBroLoose) {
+        if (timeSinceLastShot >= 1.3 && !didBroLoose) {
             domainExpansionCreateShot();
             timeSinceLastShot = 0;
         }
@@ -223,11 +227,14 @@ public class Invade extends SimpleApplication {
             if (ufoGeometry.getWorldBound().collideWith(shotDePlayer.getShotGeometry().getWorldBound(), resultsDePlayer) > 0) {
                 Vector3f currentPosition = ufoGeometry.getLocalTranslation();
                 ufoGeometry.setLocalTranslation(currentPosition.x, currentPosition.y, currentPosition.z - 15);
-                didBroHit = true;
-
+                botsShot = botsShot +1;
                 resultsDePlayer.clear();
             }
 
+        }
+
+        if (botsShot == botsList.size()){
+            createWScreen();
         }
 
         if (timeSinceLastShotDePlayer >= 1.5 && didBroShoot) {
@@ -279,7 +286,7 @@ public class Invade extends SimpleApplication {
     private void moveBots() {
         pivot.move(1f, 0, 0);
         if (skin == 0) {
-            mainInstance.mat1_1.setTexture("ColorMap", assetManager.loadTexture("Textures/Alien1-1-3.png"));
+            mainInstance.mat1_1.setTexture("ColorMap", assetManager.loadTexture("Textures/Alien1-1-4.png"));
             skin = 1;
         } else {
             mainInstance.mat1_1.setTexture("ColorMap", assetManager.loadTexture("Textures/Alien1-1.png"));
@@ -294,7 +301,7 @@ public class Invade extends SimpleApplication {
     private void moveBotsMinusOne() {
         pivot.move(-1, 0, 0);
         if (skin == 0) {
-            mainInstance.mat1_1.setTexture("ColorMap", assetManager.loadTexture("Textures/Alien1-1-3.png"));
+            mainInstance.mat1_1.setTexture("ColorMap", assetManager.loadTexture("Textures/Alien1-1-4.png"));
             skin = 1;
         } else {
             mainInstance.mat1_1.setTexture("ColorMap", assetManager.loadTexture("Textures/Alien1-1.png"));
@@ -331,6 +338,14 @@ public class Invade extends SimpleApplication {
         Geometry lLose = new Geometry("letterbox", box);
         lLose.setMaterial(mat5);
         lLose.setLocalTranslation(0, 0, 5);
+        rootNode.attachChild(lLose);
+    }
+
+    private void createWScreen() {
+        Box box = new Box(60, 37, 5);
+        Geometry lLose = new Geometry("letterbox", box);
+        lLose.setMaterial(mat7);
+        lLose.setLocalTranslation(0, 3, 5);
         rootNode.attachChild(lLose);
     }
 
