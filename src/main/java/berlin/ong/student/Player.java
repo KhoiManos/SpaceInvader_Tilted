@@ -35,7 +35,7 @@ public class Player {
         ufoplayer = new Geometry(name, player);
         this.instance = mainInstance;
         ufoplayer.setMaterial(instance.getMat2());
-        ufoplayer.setLocalTranslation(0, -15, 1);
+        ufoplayer.setLocalTranslation(0, -20, 1);
         // Initialize the bounding box based on geometry
         ufoplayer.setModelBound(new BoundingBox());
         ufoplayer.updateModelBound();
